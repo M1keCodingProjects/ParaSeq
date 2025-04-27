@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "para_seq"
+version = "0.0.1"
+description = "TODO"
+authors = [
+    { name = "Michele Ferrari", email = "mikif.2002@gmail.com" },
+]
+license = { text = "MIT" }
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
