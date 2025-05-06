@@ -1,0 +1,6 @@
+>seq1|accession=XM_123456.7|organism=Homo sapiens|desc=Hypothetical protein isoform X1|length=73|date=2023-11-14|tags=predicted,cds
+ATGCGTACGTAGCTAGCTAGCTAGCTAACGATCGATCGATCGATCGTTAGCATCGATCGATCGTACGTAGCTAGCTAGCTAACG
+>seq2|accession=NM_654321.4|organism=Mus musculus|desc=Keratin-associated protein|length=71|date=2022-06-30|tags=reviewed,mature
+CGATCGATGCATGCATGCATGCTAGCTAGCATCGTAGCTAGCTAGCTAACGATCGATCGTAGCGTACG
+>seq3|accession=NR_000000.1|organism=Escherichia coli|desc=16S ribosomal RNA|length=68|date=2021-03-02|tags=rRNA,noncoding
+GCTAGCATCGTAGCTAGCTAGCTAACGATCGATCGTAGCATCGATCGTAGCTAGCTAGCTAA

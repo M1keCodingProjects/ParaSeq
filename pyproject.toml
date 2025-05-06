@@ -10,7 +10,9 @@ authors = [
     { name = "Michele Ferrari", email = "mikif.2002@gmail.com" },
 ]
 license = { text = "MIT" }
-dependencies = []
+dependencies = [
+    "Bio",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
