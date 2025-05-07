@@ -13,3 +13,5 @@ class CustomErr(Exception):
         """
         super().__init__(f"{self.msgPrefix}: {msg}" + f", {details}" * bool(details) + '.')
         # ^^^ details are added only if present.
+        self.msg     = msg
+        self.details = details

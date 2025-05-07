@@ -1,3 +1,4 @@
+from src.para_seq import UINT_ERR
 from src.para_seq.io_manager import *
 import pytest
 
@@ -19,39 +20,29 @@ def test_isValidFastaFilePathShort():
 def test_isValidFastaFilePathTechnically():
     assert isValidFastaFilePath(".fa")
 
+# isValidDNA------------------------------------------------------------------------------
+def test_isValidDNAEmpty():
+    assert not isValidDNA("")
+
+def test_isValidDNA():
+    assert isValidDNA("ACGTNTGCGCTACACTGNNNNGGGTTTCCCAAA")
+
+def test_isValidDNAMixedCase():
+    assert isValidDNA("ACGaTNtaTGttCGccCgTcAggCcAtCaTcGnnNNtNnNaGnGaGaTTTCggCCAAA")
+
+def test_isValidDNAInvalid():
+    assert not isValidDNA("ACTFG")
+
 # uint------------------------------------------------------------------------------------
-def test_uintEmpty():
-    with pytest.raises(ValueError):
-        uint("")
-
-def test_uintAlpha():
-    with pytest.raises(ValueError):
-        uint('d')
-
-def test_uintAlphaNum():
-    with pytest.raises(ValueError):
-        uint("d3")
-
-def test_uintDecimal():
-    with pytest.raises(ValueError):
-        uint("2.2")
-
-def test_uintNeg():
-    with pytest.raises(ValueError):
-        uint("-1")
-
-def test_uintExp():
-    with pytest.raises(ValueError):
-        uint("2e04")
+@pytest.mark.parametrize("value", ["", "d", "d3", "2.2", "-1", "2e04"])
+def test_uintInvalid(value):
+    with pytest.raises(ValueError) as errInfo: uint(value)
+    assert str(errInfo.value) == UINT_ERR.format(value)
 
 def test_uint():
     assert uint("12345") == 12345
 
 # parseRawSeq-----------------------------------------------------------------------------
-def test_parseRawSeqEmpty(): # This should never happen normally
-    seqObj = parseRawSeq("", SeqName.Query)
-    assert seqObj.seq  == ""
-
 def test_parseRawSeqQuery():
     seqObj = parseRawSeq("ACGT", SeqName.Query)
     assert seqObj.seq  == "ACGT"
@@ -64,26 +55,23 @@ def test_parseRawSeqTarget():
     assert seqObj.name == SeqName.Target.value
     assert seqObj.id   == SeqName.Target.id
 
-def test_parseRawSeqInvalid():
-    with pytest.raises(ValueError):
-        parseRawSeq("QWERTY", SeqName.Query)
-
-def test_parseRawSeqOneInvalid():
-    with pytest.raises(ValueError):
-        parseRawSeq("GA.TC", SeqName.Query)
-
 def test_parseRawSeqQueryLower():
     seqObj = parseRawSeq("acGt", SeqName.Query)
     assert seqObj.seq  == "ACGT"
 
+@pytest.mark.parametrize("seq", ["", "QWERTY", "GA.TC"])
+def test_parseRawSeqInvalid(seq):
+    with pytest.raises(InvalidSeqErr) as errInfo: parseRawSeq(seq, SeqName.Query)
+    assert str(errInfo.value) == INVALID_SEQ_PREFIX + ": " + "invalid raw DNA string."
+
 # loadFasta-------------------------------------------------------------------------------
 def test_loadFastaEmpty(): # This should never happen normally
-    with pytest.raises(FileNotFoundError):
-        loadFasta("")
+    with pytest.raises(FileNotFoundError) as errInfo: loadFasta("")
+    assert str(errInfo.value) == "[Errno 2] No such file or directory: ''"
 
 def test_loadFastaNonexistent():
-    with pytest.raises(FileNotFoundError):
-        loadFasta(".fa")
+    with pytest.raises(FileNotFoundError) as errInfo: loadFasta(".fa")
+    assert str(errInfo.value) == "[Errno 2] No such file or directory: '.fa'"
 
 # Always run pytest from the root ParaSeq folder.
 TEST_DATA_PATH = ".\\data\\{}.fasta"
@@ -93,9 +81,14 @@ def test_loadFasta():
     assert seqObj.name == "seq1|accession=XM_123456.7|organism=Homo"
     assert seqObj.id   == "seq1|accession=XM_123456.7|organism=Homo"
 
+# All these tests extract the SeqRecord instance directly, which should never be done in
+# the program. This stands to test how the FASTA file is parsed as a whole, with none of
+# the necessary processing that must be done on the specific requested sequences.
 def test_loadFastaEmptyFile():
-    with pytest.raises(IndexError):
+    with pytest.raises(IndexError) as errInfo:
         loadFasta(TEST_DATA_PATH.format("empty"))[0]
+    
+    assert str(errInfo.value) == "list index out of range"
 
 def test_loadFastaHeader():
     seqObj = loadFasta(TEST_DATA_PATH.format("header"))[0]
@@ -117,10 +110,19 @@ def test_parseFastaSeq():
     assert seqObj.name == "seq1|accession=XM_123456.7|organism=Homo"
     assert seqObj.id   == "seq1|accession=XM_123456.7|organism=Homo"
 
+# The function doesn't distinguish between no sequence and bad sequence:
+@pytest.mark.parametrize("path", ["header", "bad"])
+def test_parseFastaSeqInvalid(path):
+    path = TEST_DATA_PATH.format(path)
+    with pytest.raises(InvalidSeqErr) as errInfo: parseFastaSeq(loadFasta(path), 0, path)
+    assert str(errInfo.value) == INVALID_SEQ_PREFIX + f": sequence at position 0 in FASTA\
+ file \"{path}\" is not valid DNA."
+
 def test_parseFastaSeqOOB():
     path = TEST_DATA_PATH.format("good")
-    with pytest.raises(MissingSeqsErr):
-        parseFastaSeq(loadFasta(path), 45, path)
+    with pytest.raises(MissingSeqErr) as errInfo: parseFastaSeq(loadFasta(path), 45, path)
+    assert str(errInfo.value) == MISSING_SEQ_PREFIX + f": list index out of range, FASTA \
+file \"{path}\" doesn't contain a sequence at position 45."
 
 # parseSeq--------------------------------------------------------------------------------
 # Coverage is lower here as this function just calls other functions
@@ -131,13 +133,19 @@ def test_parseSeq():
     assert seqObj.id   == "seq1|accession=XM_123456.7|organism=Homo"
 
 def test_parseSeqBadPath():
-    with pytest.raises(ValueError):
-        parseSeq("good.fsta", 0, SeqName.Target)
-        # ^^^ Bad file ext leads to interpreting this as DNA
+    with pytest.raises(InvalidSeqErr) as errInfo: parseSeq("good.fsta", 0, SeqName.Target)
+    # ^^^ Bad file ext leads to interpreting this as DNA
+    assert str(errInfo.value) == INVALID_SEQ_PREFIX + f": invalid raw DNA string, your \"\
+{SeqName.Target.value}\" sequence was interpreted as DNA, if you intended to provide a FA\
+STA file instead make sure your file path ends with a .fa or .fasta extension."
 
 def test_parseSeqOOB():
-    with pytest.raises(MissingSeqsErr):
-        parseSeq(TEST_DATA_PATH.format("good"), 45, SeqName.Target)
+    path = TEST_DATA_PATH.format("good")
+    with pytest.raises(MissingSeqErr) as errInfo:
+        parseSeq(path, 45, SeqName.Target)
+    
+    assert str(errInfo.value) == MISSING_SEQ_PREFIX + f": list index out of range, FASTA \
+file \"{path}\" doesn't contain a sequence at position 45."
 
 # parseSeqsFromFile----------------------------------------------------------------------
 def test_parseSeqsFromFile():
@@ -146,8 +154,12 @@ def test_parseSeqsFromFile():
     assert seq3.name == "seq3|accession=NR_000000.1|organism=Escherichia"
 
 def test_parseSeqsFromFileOOB():
-    with pytest.raises(MissingSeqsErr):
+    path = TEST_DATA_PATH.format("good")
+    with pytest.raises(MissingSeqErr) as errInfo:
         parseSeqsFromFile(TEST_DATA_PATH.format("good"), 0, 3)
+    
+    assert str(errInfo.value) == MISSING_SEQ_PREFIX + f": list index out of range, FASTA \
+file \"{path}\" doesn't contain a sequence at position 3."
 
 def test_parseSeqsFromFileDefault():
     seq1, seq2 = parseSeqsFromFile(TEST_DATA_PATH.format("good"), 0, 0)
@@ -155,8 +167,10 @@ def test_parseSeqsFromFileDefault():
     assert seq2.name == "seq2|accession=NM_654321.4|organism=Mus"
 
 def test_parseSeqsFromFileIdentical():
-    with pytest.raises(IdenticalSeqsErr):
-        parseSeqsFromFile(TEST_DATA_PATH.format("good"), 1, 1)
+    path = TEST_DATA_PATH.format("good")
+    with pytest.raises(IdenticalSeqsErr) as errInfo: parseSeqsFromFile(path, 1, 1)
+    assert str(errInfo.value) == f"Alignment of identical sequences is pointless: tried l\
+oading sequences coming from the same file ({path}), with identical positions (1)."
 
 # setupArgParser--------------------------------------------------------------------------
 def test_setupArgParser():
@@ -168,32 +182,18 @@ def test_setupArgParser():
     assert args.gap_penalty      == 4
     assert args.target_pos       == 5
 
-def test_setupArgParserNoArgs():
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(())
-
-def test_setupArgParserMissingArgs():
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(("-m", "2", "-mm", '3', "-g", '4'))
-    
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(('0', "-mm", '3', "-g", '4'))
-    
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(('0', "-m", "2", "-g", '4'))
-    
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(('0', "-m", "2", "-mm", '3'))
-
-def test_setupArgParserInvalidArgs():
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(('0', '1', "-m", "foo", "-mm", '3', "-g", '4'))
-    
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(('0', '1', "-m", '2', "-mm", "foo", "-g", '4'))
-    
-    with pytest.raises(SystemExit):
-        setupArgParser().parse_args(('0', '1', "-m", '2', "-mm", '3', "-g", "foo"))
+@pytest.mark.parametrize("args", [
+    (),
+    ("-m", "2", "-mm", '3', "-g", '4'),
+    ('0', "-mm", '3', "-g", '4'),
+    ('0', "-m", "2", "-g", '4'),
+    ('0', "-m", "2", "-mm", '3'),
+    ('0', '1', "-m", "foo", "-mm", '3', "-g", '4'),
+    ('0', '1', "-m", '2', "-mm", "foo", "-g", '4'),
+    ('0', '1', "-m", '2', "-mm", '3', "-g", "foo"),
+])
+def test_setupArgParserInvalidOrMissingArgs(args):
+    with pytest.raises(SystemExit) as errInfo: setupArgParser().parse_args(args)
 
 # parseInputArgs--------------------------------------------------------------------------
 def test_parseInputArgs():
@@ -258,8 +258,9 @@ def test_parseInputArgs():
 
 def test_parseInputArgsSameDNA():
     args = setupArgParser().parse_args(("ACG", "ACG", "-m", '2', "-mm", '3', "-g", '4'))
-    with pytest.raises(IdenticalSeqsErr):
-        parseInputArgs(args)
+    with pytest.raises(IdenticalSeqsErr) as errInfo: parseInputArgs(args)
+    assert str(errInfo.value) == "Alignment of identical sequences is pointless: tried lo\
+ading identical DNA sequences, the 2 provided sequences were interpreted as DNA."
 
 def test_parseInputArgsSameFasta():
     path = TEST_DATA_PATH.format("good")
@@ -268,8 +269,9 @@ def test_parseInputArgsSameFasta():
 
 def test_parseInputArgsSingleDNA():
     args = setupArgParser().parse_args(("ACG", "-m", '2', "-mm", '3', "-g", '4'))
-    with pytest.raises(MissingSeqsErr):
-        parseInputArgs(args)
+    with pytest.raises(MissingSeqErr) as errInfo: parseInputArgs(args)
+    assert str(errInfo.value) == MISSING_SEQ_PREFIX + ": a single DNA sequence was provid\
+ed."
 
 def test_parseInputArgsSingleFasta():
     args = setupArgParser().parse_args((TEST_DATA_PATH.format("good"), "-m", '2', "-mm", '3', "-g", '4'))

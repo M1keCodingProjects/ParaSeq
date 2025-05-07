@@ -5,7 +5,10 @@ class CustomErrExt(CustomErr):
     msgPrefix = "prefix"
 
 def test_CustomErr():
-    assert str(CustomErrExt("msg", "details")) == "prefix: msg, details."
+    err = CustomErrExt("msg", "details")
+    assert str(err) == "prefix: msg, details."
+    assert err.msg == "msg"
+    assert err.details == "details"
 
 def test_CustomErrNoDetails():
     assert str(CustomErrExt("msg")) == "prefix: msg."
