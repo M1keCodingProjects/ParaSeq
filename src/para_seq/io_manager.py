@@ -92,21 +92,21 @@ def loadFasta(filePath:str) -> list[SeqRecord]:
     """
     return list(SeqIO.parse(filePath, format = "fasta"))
 
-# TODO: docum
+# This wrapper around a single indexing operation provides consistent error handling
 def parseFastaSeq(seqs:list[SeqRecord], pos:int, filePath:str) -> SeqRecord:
     """
-    _summary_
+    Retrieves SeqRecord object at specified position in list, if available.
 
     Args:
-        seqs (list[SeqRecord]): _description_
-        pos (int): _description_
-        filePath (str): _descr_
+        seqs (list[SeqRecord]): The list of SeqRecord objects.
+        pos (int): The position at which to retrieve the desired sequence.
+        filePath (str): File path of the original FASTA file the sequences were obtained from, for error reporting purposes.
 
     Raises:
         MissingSeqsErr: If the requested sequence position was invalid.
 
     Returns:
-        SeqRecord: _description_
+        SeqRecord: The sequence at the specified position.
     """
     try: return seqs[pos]
     except IndexError as err: raise MissingSeqsErr(err,
