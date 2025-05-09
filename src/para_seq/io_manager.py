@@ -1,12 +1,12 @@
 ## Input-Output manager module
-from Bio            import SeqIO
-from para_seq.utils import CustomErr
+from typing         import Generator
 from para_seq       import SeqName
 from argparse       import ArgumentParser, Namespace
-from Bio.SeqRecord  import SeqRecord, Seq
+from itertools      import islice
+from para_seq.utils import CustomErr
 
 # All the consts I need here...
-from para_seq import GAP_HELP, MATCH_HELP, MISMATCH_HELP, PACKAGE_DESCR, PACKAGE_NAME, QUERY_POS_HELP, QUERY_SEQ_HELP, TARGET_POS_HELP, TARGET_SEQ_HELP, UINT_ERR, INVALID_SEQ_PREFIX, MISSING_SEQ_PREFIX
+from para_seq import GAP_HELP, MATCH_HELP, MISMATCH_HELP, PACKAGE_DESCR, PACKAGE_NAME, QUERY_POS_HELP, QUERY_SEQ_HELP, TARGET_POS_HELP, TARGET_SEQ_HELP, UINT_ERR, INVALID_SEQ_PREFIX, MISSING_SEQ_PREFIX, FASTA_HEADER_SYMBOL
 
 # Custom errors:
 class IdenticalSeqsErr(CustomErr):
@@ -36,8 +36,8 @@ def isValidFastaFilePath(filePath:str) -> bool:
 
 def isValidDNA(seq:str) -> bool:
     """
-    Checks case-insensitively if the provided string is made up entirely of valid DNA
-    nucleotide characters in the (mostly) unambiguous "ACGTN" alphabet.
+    Checks case-insensitively that the provided string is non-empty and made up entirely
+    of valid DNA nucleotide characters in the (mostly) unambiguous "ACGTN" alphabet.
 
     Args:
         seq (str): The provided sequence string.
@@ -72,103 +72,111 @@ def uint(value:str) -> int:
     
     return int(value)
 
-# Obtain seq object from raw DNA input:
-def parseRawSeq(seq:str, name:SeqName) -> SeqRecord:
+type DNA = str # Valid DNA, all the characters belong to the ACGTN set.
+def validateDNA(seq:str) -> DNA:
     """
-    Parses raw DNA sequence string into SeqRecord object.
+    Parse raw DNA sequence string into valid DNA string with upper-case nucleotides.
 
     Args:
         seq (str): The raw DNA sequence string.
-        name (SeqName): Sequence metadata, merely for output purposes.
 
     Raises:
-        InvalidSeqErr: if the sequence string is not valid DNA (only characters in the ACGTN set).
-    
-    Returns:
-        SeqRecord: The parsed DNA sequence, with all the nucleotides set to uppercase.
-    """
-    # TODO: speed up with numpy
-    if not isValidDNA(seq): raise InvalidSeqErr("invalid raw DNA string")
+        InvalidSeqErr: If the sequence string is not valid DNA (only characters in the ACGTN set).
 
-    return SeqRecord(seq = Seq(seq.upper()), id = name.id, name = name.value)
+    Returns:
+        DNA: The valid DNA sequence.
+    """
+    if not isValidDNA(seq): raise InvalidSeqErr("")
+
+    return seq.upper()
 
 # Obtain seq object from FASTA file path
-# Loading the entire file once can improve performance:
-def loadFasta(filePath:str) -> list[SeqRecord]:
+def parseFastaSeq(filePath:str, seq1Pos:int, seq2Pos :int = None) -> tuple[DNA, DNA]:
     """
-    Attempts to load a FASTA file at the provided path with SeqIO.
+    Attempts to load a FASTA file at the provided path, skipping through it until the
+    desired sequence position(s) is (are) reached, then validates, parses and retrieves
+    the sequence(s).
 
     Args:
         filePath (str): The provided FASTA file path.
-
-    Returns:
-        list[SeqRecord]: The collection of sequences in the FASTA file as
-        SeqRecord objects.
-    """
-    return list(SeqIO.parse(filePath, format = "fasta"))
-
-# Even if this was just a wrapper around a single indexing operation it would still be
-# worth it for the consistent error handling it provides. This is also where sequence
-# validation and uppercasing happens, so it's essential 
-def parseFastaSeq(seqs:list[SeqRecord], pos:int, filePath:str) -> SeqRecord:
-    """
-    Retrieves and parses SeqRecord object at specified position in list, if available and
-    valid DNA.
-
-    Args:
-        seqs (list[SeqRecord]): The list of SeqRecord objects.
-        pos (int): The position at which to retrieve the desired sequence.
-        filePath (str): File path of the original FASTA file the sequences were obtained from, for error reporting purposes.
+        seq1Pos (int): Position of the desired sequence, as a non-negative integer.
+        seq2Pos (int, optional): Position of a second desired sequence, if provided. Defaults to: None.
 
     Raises:
-        MissingSeqsErr: If the requested sequence position was invalid.
-        InvalidSeqErr: if the sequence string is not valid DNA (only characters in the ACGTN set).
-
-    Returns:
-        SeqRecord: The sequence at the specified position.
-    """
-    try: seqObj = seqs[pos]
-    except IndexError as err: raise MissingSeqErr(str(err),
-        f"FASTA file \"{filePath}\" doesn't contain a sequence at position {pos}")
+        MissingSeqErr: if the desired sequence position(s) is (are) invalid.
     
-    if not isValidDNA(str(seqObj.seq)): raise InvalidSeqErr(
-        f"sequence at position {pos} in FASTA file \"{filePath}\" is not valid DNA")
+    Returns:
+        tuple: The first, and optionally second, sequence(s) at the desired positon(s).
+    """
+    pos        = -1 # We expect the file to start with a header, which will be of seq #0
+    seqBuffer  = ""
+    seq1, seq2 = "", ""
+    with open(filePath) as fd:
+        while True:
+            line = fd.readline()
+            if not line: # EOF reached
+                if seqBuffer: line = FASTA_HEADER_SYMBOL # If we wanted the last seq..
+                else: raise MissingSeqErr(
+                    f"FASTA file \"{filePath}\" doesn't contain a sequence at position {
+                        seq2Pos if seq1 else seq1Pos}")
+            # ^^^ Otherwise this means at least one pos is OOB: if a seq is empty it must
+            # be because we didn't find it yet since empty seqs are discarded in
+            # validation. The position of a seq that is missing is the one that goes
+            # beyond the amount of seqs in the file.
 
-    # It makes no sense to use MutableSeq just to do this and never touch the seq again,
-    # so I reassign instead:
-    seqObj.seq = seqObj.seq.upper()
-    return seqObj
+            line = line.strip()
+            if not line: continue
+            # ^^^ This must be done AFTER the emptiness check, as only the EOF is
+            # fully empty (no \n) before strip.
+
+            if line[0] == FASTA_HEADER_SYMBOL: # This line would start a new seq
+                # So we either save the completed previous seq or ignore and move on:
+                try:
+                    if   pos == seq1Pos: seq1 = validateDNA(seqBuffer)
+                    elif pos == seq2Pos: seq2 = validateDNA(seqBuffer)
+                
+                except InvalidSeqErr: raise InvalidSeqErr(
+                    f"sequence at position {pos} in FASTA file \"{filePath}\" is not valid DNA")
+                
+                # We can exit when the requested seqs are ready:
+                if seq1 and (seq2 or seq2Pos is None): return seq1, seq2
+
+                seqBuffer = ""
+                pos += 1
+                continue
+
+            if pos == seq1Pos or pos == seq2Pos: seqBuffer += line # Accumulate the seq
 
 # A method that checks which type of seq info was given and acts accordingly:
-def parseSeq(seqOrFilePath:str, pos:int, name:SeqName) -> SeqRecord:
+def parseSeq(seqOrFilePath:str, pos:int, name:SeqName) -> DNA:
     """
     Obtains SeqRecord object from raw DNA sequence string or FASTA file path.
 
     Args:
         seqOrFilePath (str): The raw DNA sequence string or FASTA file path.
         pos (int): The position of the sequence in the FASTA file, if provided, as a non-negative integer.
-        name (SeqName): Sequence metadata merely for output purposes, used if the sequence is provided as raw DNA.
+        name (SeqName): Sequence metadata merely for error reporting purposes, used if the sequence is provided as raw DNA.
 
     Raises:
-        MissingSeqsErr: If the provided string was interpreted as a FASTA file but the requested sequence position was invalid.
         InvalidSeqErr: If the provided string could not be interpreted as a FASTA file but is also not valid DNA (only characters in the ACGTN set).
 
     Returns:
-        SeqRecord: The parsed DNA sequence. Availability of certain metadata depends on how the sequence was retrieved.
+        DNA: The valid DNA sequence.
     """
     if isValidFastaFilePath(seqOrFilePath):
-        return parseFastaSeq(loadFasta(seqOrFilePath), pos, seqOrFilePath)
+        return parseFastaSeq(seqOrFilePath, pos)[0] # <-- We only take one seq here
     
-    try: return parseRawSeq(seqOrFilePath, name)
-    except InvalidSeqErr as err: raise InvalidSeqErr(err.msg,
-        f"your \"{name}\" sequence was interpreted as DNA, if you intended to provide a F\
-ASTA file instead make sure your file path ends with a .fa or .fasta extension")
+    try: return validateDNA(seqOrFilePath)
+    except InvalidSeqErr:
+        raise InvalidSeqErr(f"Your \"{name}\" sequence is not valid DNA")
+    
+    # ^^^ Not as dumb as it looks, I didn't want to pass useless info to the validateDNA
+    # function, the error stays the same but gets enriched with the seq name/path here.
 
 # Helper to isolate the "same file" case a bit more:
-def parseSeqsFromFile(filePath:str, targetPos:int, queryPos:int) -> tuple[SeqRecord, SeqRecord]:
+def parseSeqsFromFile(filePath:str, targetPos:int, queryPos:int) -> tuple[DNA, DNA]:
     """
-    Obtain SeqRecord objects for both the target and query sequence, taken from the same
-    FASTA file.
+    Obtain valid DNA target and query sequences, taken from the same FASTA file.
 
     Args:
         filePath (str): The provided FASTA file path.
@@ -179,7 +187,7 @@ def parseSeqsFromFile(filePath:str, targetPos:int, queryPos:int) -> tuple[SeqRec
         IdenticalSeqsErr: If the sequences to load are the same.
 
     Returns:
-        tuple[SeqRecord, SeqRecord]: Respectively the target and query sequences.
+        tuple[DNA, DNA]: Respectively the target and query sequences.
     """
     # It makes no sense to align a sequence with itself:
     if queryPos == targetPos:
@@ -192,8 +200,7 @@ def parseSeqsFromFile(filePath:str, targetPos:int, queryPos:int) -> tuple[SeqRec
         # the first 2 seqs of the file:
         queryPos = 1
     
-    seqs = loadFasta(filePath)
-    return parseFastaSeq(seqs, targetPos, filePath), parseFastaSeq(seqs, queryPos, filePath)
+    return parseFastaSeq(filePath, targetPos, queryPos)
 
 def setupArgParser() -> ArgumentParser:
     """
@@ -240,7 +247,7 @@ def setupArgParser() -> ArgumentParser:
 
     return parser
 
-def parseInputArgs(args:Namespace) -> tuple[SeqRecord, SeqRecord, int, int, int]:
+def parseInputArgs(args:Namespace) -> tuple[DNA, DNA, int, int, int]:
     """
     Parse all the CLI input arguments passed by the user and necessary for
     the analysis.
@@ -254,8 +261,8 @@ def parseInputArgs(args:Namespace) -> tuple[SeqRecord, SeqRecord, int, int, int]
 
     Returns:
         tuple:
-        - SeqRecord: The target sequence.
-        - SeqRecord: The query sequence.
+        - DNA: The target sequence.
+        - DNA: The query sequence.
         - int: The match score.
         - int: The mismatch penalty.
         - int: The gap penalty.
@@ -287,7 +294,7 @@ def parseInputArgs(args:Namespace) -> tuple[SeqRecord, SeqRecord, int, int, int]
 
 # This function has been split into the 2 above for ease of testing, this down here is
 # what one should export:
-def collectAndParseInputArgs(args :tuple[str, ...]|None = None) -> tuple[SeqRecord, SeqRecord, int, int, int]:
+def collectAndParseInputArgs(args :tuple[str, ...]|None = None) -> tuple[DNA, DNA, int, int, int]:
     """
     Collect and parse all the CLI input arguments passed by the user and necessary for
     the analysis.
@@ -297,8 +304,8 @@ def collectAndParseInputArgs(args :tuple[str, ...]|None = None) -> tuple[SeqReco
 
     Returns:
         tuple:
-        - SeqRecord: The target sequence.
-        - SeqRecord: The query sequence.
+        - DNA: The target sequence.
+        - DNA: The query sequence.
         - int: The match score.
         - int: The mismatch penalty.
         - int: The gap penalty.
@@ -307,4 +314,4 @@ def collectAndParseInputArgs(args :tuple[str, ...]|None = None) -> tuple[SeqReco
     return parseInputArgs(setupArgParser().parse_args(args))
 
 if __name__ == "__main__":
-    print(collectAndParseInputArgs(('0', '1', "-m", '0', "-mm", '0', "-g", '1')))
+    print(collectAndParseInputArgs(('data\\good.fasta', 'GGC', "-m", '0', "-mm", '0', "-g", '1')))

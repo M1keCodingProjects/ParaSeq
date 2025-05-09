@@ -1,6 +1,9 @@
 ## A place to add package-level constants and constructs
 from enum import StrEnum
 
+# -Constants section-
+FASTA_HEADER_SYMBOL = '>'
+
 # -Strings section-
 # Package description and documentation:
 PACKAGE_NAME  = "ParaSeq"
