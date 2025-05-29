@@ -9,3 +9,6 @@ venv/
 .idea/
 *.egg-info/
 build/
+
+*.fxi
+output/

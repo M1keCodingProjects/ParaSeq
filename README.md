@@ -15,21 +15,25 @@ git clone https://github.com/M1keCodingProjects/ParaSeq.git
 cd ParaSeq
 ```
 
-**Install dependencies** dependencies are inferred automatically from the pyproject.toml file, simply run this program:
+**Install dependencies**, which are inferred automatically from the pyproject.toml file. Simply run this program:
 ```shell
 pip install .
 ```
-I recommend using **Python version 3.13.0** or higher.
 
-**Run the program** and provide the necessary arguments:
+**Run the program** as a module and provide the necessary arguments:
 ```shell
-python3 src\para_seq\main.py
+python -m src.para_seq.main ACGTGTG .\data\good.fasta -m 2 -mm 1 -g 2 -qp 1
+```
+Make sure you are using **Python version 3.13.0** or higher, to check run:
+```shell
+python --version
 ```
 
 ## License
 This project is licensed under the MIT License.
 
 ## Documentation
+Parallelized antidiagonal matrix-filling was inspired by:
 > Xia Z, et al. A Review of Parallel Implementations for the Smith-Waterman Algorithm. Interdiscip Sci. 2022;14(1):1-14. doi:10.1007/s12539-021-00473-0
 
 _work in progress:_<br>
