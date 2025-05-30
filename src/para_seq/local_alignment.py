@@ -306,7 +306,7 @@ def execTraceback(startY:int, startX:int) -> list[Alignment]:
 
 # Contains some prints since it's intended as the main collection of analysis pipeline
 # steps, to be called in the main file:
-def findLocalAlignments(analysisParams:AnalysisParams, *, doLogProgress = False) -> tuple[int, list[Alignment]]:
+def findLocalAlignments(analysisParams:AnalysisParams, *, doLogProgress = False, doShowMatrices = False) -> tuple[int, list[Alignment]]:
     """
     Find all local alignments starting from the provided analysis parameters.
 
@@ -319,6 +319,7 @@ def findLocalAlignments(analysisParams:AnalysisParams, *, doLogProgress = False)
             - gapPenalty (int) : The alignment score gap penalty for gap opening and extension.
 
         doLogProgress (bool, optional): If True prints analysis progress messages to standard output. Defaults to: False.
+        doShowMatrices (bool, optional): If True prints the filled score and directions matrices to standard output, useful for debugging. Defaults to: False.
     
     Returns:
         tuple: The maximum alignment score and all the local alignments, ignoring exact duplicates.
@@ -328,6 +329,10 @@ def findLocalAlignments(analysisParams:AnalysisParams, *, doLogProgress = False)
 
     if doLogProgress: print("Filling score and directions matrices...")
     maxScore = fillMatrices(analysisParams)
+
+    if doShowMatrices:
+        print("score matrix:", scoreMatrix, "directions matrix:", dirsMatrix,
+              sep = "\n\n", end = "\n\n")
 
     if doLogProgress: print("Reconstructing best local alignments...")
     bestLocalAlignments = reconstructAlignments(scoreMatrix, maxScore, analysisParams)

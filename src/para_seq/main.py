@@ -3,12 +3,13 @@ from para_seq.input_manager   import setupArgParser, parseInputArgs
 from para_seq.local_alignment import findLocalAlignments
 from para_seq.output_manager  import displayOutputSummary, saveOutput
 
-def main(args :tuple[str, ...]|None = None) -> None:
+def main(args :tuple[str, ...]|None = None, *, isDebugMode = False) -> None:
     """
     Main application entry point.
     
     Args:
         args (tuple[str, ...] | None): The input arguments, if passed manually for testing purposes. Defaults to: None.
+        isDebugMode (bool, optional): If True, the method prints additional information for debugging purposes. Defaults to: False.
     """
     print("Starting analysis...")
     args = setupArgParser().parse_args(args)
@@ -16,10 +17,12 @@ def main(args :tuple[str, ...]|None = None) -> None:
     print("Retrieving sequences...")
     *analysisParams, outputPath, shownAlignments, maxSeqLen = parseInputArgs(args)
 
-    maxScore, bestLocalAlignments = findLocalAlignments(analysisParams, doLogProgress = True)
+    maxScore, bestLocalAlignments = findLocalAlignments(
+        analysisParams, doLogProgress = True, doShowMatrices = isDebugMode)
+    
     if not bestLocalAlignments:
-        print("No alignments were found, which might indicate that your sequences' nucleotides\
- are completely different.")
+        print("No alignments were found, which might indicate that your sequences' \
+nucleotides are completely different.")
         return
     
     displayOutputSummary(maxScore, bestLocalAlignments, shownAlignments, maxSeqLen)
