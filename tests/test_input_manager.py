@@ -54,12 +54,12 @@ def test_validateDNAInvalid(seq):
 
 # parseFastaSeq---------------------------------------------------------------------------
 def test_parseFastaSeqEmpty(): # This should never happen normally
-    with pytest.raises(MissingSeqErr) as errInfo: parseFastaSeq("", 1)
-    assert str(errInfo.value) == MISSING_SEQ_PREFIX + ": [Errno 2] No such file or directory: '', the provided FASTA file doesn't exist."
+    with pytest.raises(InvalidFileErr) as errInfo: parseFastaSeq("", 1)
+    assert str(errInfo.value) == INVALID_FILE_PREFIX + ": [Errno 2] No such file or directory: '', the provided FASTA file doesn't exist."
 
 def test_parseFastaSeqNonexistent():
-    with pytest.raises(MissingSeqErr) as errInfo: parseFastaSeq(".fa", 1)
-    assert str(errInfo.value) == MISSING_SEQ_PREFIX + ": [Errno 2] No such file or directory: '.fa', the provided FASTA file doesn't exist."
+    with pytest.raises(InvalidFileErr) as errInfo: parseFastaSeq(".fa", 1)
+    assert str(errInfo.value) == INVALID_FILE_PREFIX + ": [Errno 2] No such file or directory: '.fa', the provided FASTA file doesn't exist."
 
 # Always run pytest from the root ParaSeq folder.
 TEST_DATA_PATH = ".\\data\\{}.fasta"
@@ -70,8 +70,8 @@ def test_parseFastaSeqEmptyFile():
 
 def test_parseFastaSeqMalformedFile():
     path = TEST_DATA_PATH.format("malformed")
-    with pytest.raises(MissingSeqErr) as errInfo: parseFastaSeq(path, 1)
-    assert str(errInfo.value) == MISSING_SEQ_PREFIX + f": {path} is not plain or gzip compressed fasta formatted file, file is malformed."
+    with pytest.raises(InvalidFileErr) as errInfo: parseFastaSeq(path, 1)
+    assert str(errInfo.value) == INVALID_FILE_PREFIX + f": {path} is not plain or gzip compressed fasta formatted file, file is malformed."
 
 def test_parseFastaSeq():
     seq1, seq2 = parseFastaSeq(TEST_DATA_PATH.format("good"), 1, 2)

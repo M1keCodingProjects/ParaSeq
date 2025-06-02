@@ -18,7 +18,6 @@ class InvalidSeqErr(CustomErr):
     """Error class for invalid sequences."""
     msgPrefix = INVALID_SEQ_PREFIX
 
-# TODO: see where else you can use this
 class InvalidFileErr(CustomErr):
     """Error class for invalid FASTA or output (.txt) files."""
     msgPrefix = INVALID_FILE_PREFIX
@@ -89,6 +88,8 @@ def validateDNA(seq:str) -> DNA:
         DNA: The valid DNA sequence.
     """
     if not isValidDNA(seq): raise InvalidSeqErr("")
+    # The specifics of the error are filled in later, which isn't ideal in general but
+    # the error class does a good job of explaining what more or less happened.
 
     return seq.upper()
 
@@ -103,7 +104,8 @@ def addTrailingNewline(filePath:str) -> None:
         filePath (str): The provided file path.
 
     Raises:
-        MissingSeqErr: When the provided FASTA file is empty or nonexistent.
+        MissingSeqErr: When the provided FASTA file is empty.
+        InvalidFileErr: When the provided file path doesn't lead to an existent FASTA file.
     """
     try:
         # Reading in bytes makes the process more streamlined:
@@ -117,7 +119,7 @@ def addTrailingNewline(filePath:str) -> None:
             if f.read(1) != b'\n': f.write(b'\n')
     
     except FileNotFoundError as err:
-        raise MissingSeqErr(err, "the provided FASTA file doesn't exist")
+        raise InvalidFileErr(err, "the provided FASTA file doesn't exist")
 
 # Untested as it's hard to isolate (I'd have to create a Fasta instance)
 def _getValidSeqFromCollection(collection:Fasta, pos:int, filePath:str) -> DNA:
@@ -155,7 +157,7 @@ def parseFastaSeq(filePath:str, seq1Pos:int, seq2Pos :int = None) -> tuple[DNA, 
         seq2Pos (int, optional): 1-based position of a second desired sequence, if provided. Defaults to: None.
     
     Raises:
-        MissingSeqErr: When the provided FASTA file is malformed.
+        InvalidFileErr: When the provided FASTA file is malformed.
     
     Returns:
         tuple: The first, and optionally second, sequence(s) at the desired position(s).
@@ -163,7 +165,7 @@ def parseFastaSeq(filePath:str, seq1Pos:int, seq2Pos :int = None) -> tuple[DNA, 
     addTrailingNewline(filePath)
 
     try: seqs = Fasta(filePath)
-    except RuntimeError as err: raise MissingSeqErr(err, "file is malformed")
+    except RuntimeError as err: raise InvalidFileErr(err, "file is malformed")
 
     seq1 = _getValidSeqFromCollection(seqs, seq1Pos, filePath)
     seq2 = "" if seq2Pos is None else _getValidSeqFromCollection(seqs, seq2Pos, filePath)
@@ -294,6 +296,7 @@ def parseInputArgs(args:Namespace) -> tuple[DNA, DNA, int, int, int, str, int, i
         args (Namespace): The Namespace object containing the arguments and their values.
 
     Raises:
+        InvalidFileErr: If the output file path argument is invalid.
         MissingSeqsErr: When not enough information was provided to retrieve the two sequences.
         IdenticalSeqsErr: If the sequences to load are the same.
 

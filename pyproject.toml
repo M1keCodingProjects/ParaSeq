@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "para_seq"
 version = "0.0.1"
 requires-python = ">=3.13.0"
-description = "TODO"
+description = "This project provides a parallel implementation of the Smith-Waterman local sequence alignment algorithm in Python."
 authors = [
     { name = "Michele Ferrari", email = "mikif.2002@gmail.com" },
 ]

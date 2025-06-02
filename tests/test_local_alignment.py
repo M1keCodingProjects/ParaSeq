@@ -41,8 +41,6 @@ def test_createMatricesZeroDims():
     with pytest.raises(ValueError) as errInfo: createMatrices((0, 0))
     assert str(errInfo.value) == "\'size\' must be a positive number different from zero"
 
-# TODO: Testing the retrieval case needs a process
-
 # freeSharedMem---------------------------------------------------------------------------
 def test_freeSharedMem():
     mem = SharedMemory(name = "test", create = True, size = 1)
