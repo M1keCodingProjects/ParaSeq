@@ -1,0 +1,42 @@
+Score: 8
+Total alignments: 8
+
+Target start pos: 1
+Query start pos: 7
+Target sequence: ACGT-G
+Query sequence:  ACGTAG
+
+Target start pos: 1
+Query start pos: 65
+Target sequence: ACGT
+Query sequence:  ACGT
+
+Target start pos: 1
+Query start pos: 65
+Target sequence: ACGT-G-T-G
+Query sequence:  ACGTAGCTAG
+
+Target start pos: 1
+Query start pos: 7
+Target sequence: ACGT-G-T
+Query sequence:  ACGTAGCT
+
+Target start pos: 1
+Query start pos: 7
+Target sequence: ACGT
+Query sequence:  ACGT
+
+Target start pos: 1
+Query start pos: 65
+Target sequence: ACGT-G-T
+Query sequence:  ACGTAGCT
+
+Target start pos: 1
+Query start pos: 65
+Target sequence: ACGT-G
+Query sequence:  ACGTAG
+
+Target start pos: 1
+Query start pos: 7
+Target sequence: ACGT-G-T-G
+Query sequence:  ACGTAGCTAG

@@ -11,4 +11,3 @@ venv/
 build/
 
 *.fxi
-output/

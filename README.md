@@ -21,11 +21,6 @@ Make sure you are using **Python version 3.13.0** or higher, to check run:
 python --version
 ```
 
-If you want, you can use the python installed in the virtual environment for this project:
-```shell
-.venv\Scripts\python.exe
-```
-
 **Install dependencies**, which are inferred automatically from the pyproject.toml file.
 Simply run this command:
 ```shell
@@ -36,6 +31,12 @@ pip install .
 ```shell
 python -m src.para_seq.main ACGTGTG .\data\good.fasta -m 2 -mm 1 -g 2 -qp 1
 ```
+
+**Read the full output** a summary output will be shown in the terminal, but if you want
+to read the full list of alignments head on over to the ```.\output``` folder. Read
+the documentation to see how to **change the ouput path**.
+If you executed the example above you should find results that match what you'll find in
+```.\output\example_output.txt```, perhaps in a different order.
 
 ## Documentation
 The tool will accept **direct DNA sequences** or **FASTA** (.fasta, .fa) **file paths**,
@@ -78,7 +79,7 @@ steps of the pipeline:
     position can be computed **in parallel**. Once again, each group is dispatched to a
     MultiProcessing Process via a **MultiProcessing Pool**.
 
-An interesting detail: in order for the directions matrix to occupy less space in memory
+**Interesting detail #1:** in order for the directions matrix to occupy less space in memory
 I introduced an optimization where all the directions in a cell are represented by different
 bits in a 3-bit binary flag. Essentially, each cell in the matrix is a **uint8** where the
 3 least significant bits are set as such:
@@ -89,6 +90,11 @@ bits in a 3-bit binary flag. Essentially, each cell in the matrix is a **uint8**
 Therefore for example a cell containing both the "up" and "diagonal" directions would have
 the value b00000011 (3, in decimal). This greatly reduces the memory footprint of the
 directions matrix from a more naive implementation with a list of numbers or strings.
+
+**Interesting detail #2:** the alignments for 2 runs on identical data will be the same but
+most likely in a different order. This is because the alignments are collected in a set in
+order to **eliminate true duplicates** (exactly the same aligned subsequences, from exactly the
+same starting positions).
 
 ## License
 This project is licensed under the MIT License.
